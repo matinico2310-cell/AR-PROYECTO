@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorando el mundo con la realidad aumentada</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #splash-screen.hidden {
+            display: none;
+        }
+
+        .splash-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            animation: fadeIn 1s;
+        }
+
+        .splash-info {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            max-width: 500px;
+            animation: fadeIn 1.5s;
+        }
+
+        .splash-info h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+        }
+
+        .splash-info p {
+            font-size: 1.1em;
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            animation: fadeIn 2s;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.4);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b0764 100%);
+        }
+
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            color: white;
+            z-index: 100;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .model-selector {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .model-btn {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .model-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+
+        .model-btn.active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-color: #10b981;
+            box-shadow: 0 5px 15px rgba(16,185,129,0.4);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 20px;
+            z-index: 100;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+
+        .control-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 200px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 320px;
+            z-index: 100;
+            display: none;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .info-panel.visible {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .info-panel h3 {
+            color: #10b981;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .info-panel p {
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .close-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        .part-item {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 3px solid #10b981;
+        }
+
+        .part-item strong {
+            color: #10b981;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .splash-title {
+                font-size: 1.8em;
+            }
+            
+            .header h1 {
+                font-size: 1.2em;
+            }
+            
+            .model-selector {
+                top: 100px;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .model-btn {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+            
+            .controls {
+                bottom: 10px;
+                padding: 10px;
+            }
+            
+            .control-btn {
+                padding: 10px 15px;
+                font-size: 0.85em;
+            }
+
+            .info-panel {
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="splash-screen">
+        <div class="splash-title">🔬 Explorando el mundo con la realidad aumentada</div>
+        <div class="splash-info">
+            <h3>👥 Integrantes del Grupo:</h3>
+            <p>Matias Encalada</p>
+            <p>María Paz Donoso</p>
+            <p>Anthony Defáz</p>
+            <h3 style="margin-top: 20px;">🏫 Plantel:</h3>
+            <p>Academia Gral. Carlos Machado</p>
+        </div>
+        <button class="start-btn" onclick="startApp()">COMENZAR EXPLORACIÓN</button>
+    </div>
+
+    <div id="canvas-container" style="display: none;">
+        <div class="header">
+            <h1>🔬 Explorando el mundo con la realidad aumentada</h1>
+            <p>Grupo: Matias Encalada, María Paz Donoso, Anthony Defáz | Academia Gral. Carlos Machado</p>
+        </div>
+
+        <div class="model-selector">
+            <button class="model-btn active" onclick="changeModel('water')">💧 Molécula de Agua</button>
+            <button class="model-btn" onclick="changeModel('cell')">🧬 Célula Animal</button>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" onclick="resetView()">🔄 Resetear</button>
+            <button class="control-btn" onclick="zoomIn()">🔍+ Acercar</button>
+            <button class="control-btn" onclick="zoomOut()">🔍- Alejar</button>
+            <button class="control-btn" onclick="toggleInfo()">ℹ️ Info Completa</button>
+            <button class="control-btn" onclick="toggleRotation()">⏯️ <span id="rotation-text">Pausar</span></button>
+        </div>
+
+        <div class="info-panel" id="info-panel">
+            <button class="close-info" onclick="toggleInfo()">×</button>
+            <div id="info-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        let currentModel = 'water';
+        let modelGroup;
+        let isRotating = true;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let mouseDownTime = 0;
+
+        const modelInfo = {
+            water: {
+                title: '💧 Molécula de Agua (H₂O)',
+                description: 'La molécula de agua está compuesta por dos átomos de hidrógeno y un átomo de oxígeno unidos por enlaces covalentes. Es esencial para la vida y cubre el 71% de la superficie terrestre.',
+                parts: [
+                    { name: 'Átomo de Oxígeno (O)', desc: 'Elemento esencial para la vida. Es el átomo central (rojo) que atrae los electrones compartidos, creando polaridad en la molécula.' },
+                    { name: 'Átomos de Hidrógeno (H)', desc: 'Elemento más abundante del universo. Los dos átomos blancos pequeños comparten electrones con el oxígeno.' },
+                    { name: 'Enlaces Covalentes', desc: 'Uniones químicas donde los átomos comparten pares de electrones. Forman un ángulo de 104.5°.' }
+                ]
+            },
+            cell: {
+                title: '🧬 Célula Animal',
+                description: 'La célula animal es la unidad básica estructural y funcional de los organismos animales. Contiene diversos organelos que trabajan juntos para mantener la vida celular.',
+                parts: [
+                    { name: 'Membrana Celular', desc: 'Capa externa azul semi-transparente. Controla el paso de sustancias hacia dentro y fuera de la célula mediante permeabilidad selectiva.' },
+                    { name: 'Núcleo', desc: 'Esfera morada central. Contiene el ADN (material genético) y controla todas las actividades celulares como la reproducción y síntesis de proteínas.' },
+                    { name: 'Citoplasma', desc: 'Líquido gelatinoso azul claro que llena el interior celular. En él flotan todos los organelos y ocurren muchas reacciones químicas.' },
+                    { name: 'Mitocondrias', desc: 'Organelos rojos ovalados (3 visibles). Son las "centrales energéticas" que producen ATP mediante respiración celular.' },
+                    { name: 'Retículo Endoplasmático', desc: 'Estructuras verdes tubulares y anilladas. Transporta proteínas y lípidos por toda la célula. Puede ser rugoso (con ribosomas) o liso.' },
+                    { name: 'Ribosomas', desc: 'Pequeñas esferas amarillas dispersas. Sintetizan proteínas siguiendo las instrucciones del ARN mensajero.' },
+                    { name: 'Aparato de Golgi', desc: 'Estructura dorada apilada. Modifica, empaqueta y distribuye proteínas y lípidos hacia su destino final.' },
+                    { name: 'Lisosomas', desc: 'Pequeñas esferas rosas. Contienen enzimas digestivas que descomponen materiales de desecho y sustancias extrañas.' }
+                ]
+            }
+        };
+
+        function startApp() {
+            document.getElementById('splash-screen').classList.add('hidden');
+            document.getElementById('canvas-container').style.display = 'block';
+            initScene();
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 8;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight1.position.set(5, 5, 5);
+            scene.add(directionalLight1);
+
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight2.position.set(-5, -3, -5);
+            scene.add(directionalLight2);
+
+            const pointLight = new THREE.PointLight(0xffffff, 0.3);
+            pointLight.position.set(0, 0, 10);
+            scene.add(pointLight);
+
+            createModel('water');
+
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('click', onCanvasClick);
+            renderer.domElement.addEventListener('touchstart', onTouchStart);
+            renderer.domElement.addEventListener('touchmove', onTouchMove);
+            renderer.domElement.addEventListener('touchend', onTouchEnd);
+            window.addEventListener('resize', onWindowResize);
+
+            animate();
+        }
+
+        function createModel(type) {
+            if (modelGroup) {
+                scene.remove(modelGroup);
+            }
+            modelGroup = new THREE.Group();
+            
+            if (type === 'water') {
+                createWaterMolecule();
+            } else {
+                createAnimalCell();
+            }
+            
+            scene.add(modelGroup);
+        }
+
+        function createWaterMolecule() {
+            const oxygenGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const oxygenMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xef4444,
+                shininess: 100,
+                specular: 0x666666
+            });
+            const oxygen = new THREE.Mesh(oxygenGeometry, oxygenMaterial);
+            oxygen.position.set(0, 0, 0);
+            oxygen.userData = { name: 'Átomo de Oxígeno', info: 'Elemento esencial para la vida. Atrae los electrones compartidos creando polaridad.' };
+            modelGroup.add(oxygen);
+
+            const hydrogenGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const hydrogenMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xf0f0f0,
+                shininess: 100,
+                specular: 0x666666
+            });
+            
+            const hydrogen1 = new THREE.Mesh(hydrogenGeometry, hydrogenMaterial);
+            hydrogen1.position.set(1.5, 1, 0);
+            hydrogen1.userData = { name: 'Hidrógeno 1', info: 'Elemento más abundante del universo. Comparte electrones con el oxígeno.' };
+            modelGroup.add(hydrogen1);
+
+            const hydrogen2 = new THREE.Mesh(hydrogenGeometry, hydrogenMaterial);
+            hydrogen2.position.set(1.5, -1, 0);
+            hydrogen2.userData = { name: 'Hidrógeno 2', info: 'Forma enlaces covalentes con el oxígeno en ángulo de 104.5°.' };
+            modelGroup.add(hydrogen2);
+
+            const bondMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc });
+            
+            const bond1Geometry = new THREE.CylinderGeometry(0.1, 0.1, 1.5, 8);
+            const bond1 = new THREE.Mesh(bond1Geometry, bondMaterial);
+            bond1.position.set(0.75, 0.5, 0);
+            bond1.rotation.z = -Math.PI / 4;
+            modelGroup.add(bond1);
+
+            const bond2 = new THREE.Mesh(bond1Geometry, bondMaterial);
+            bond2.position.set(0.75, -0.5, 0);
+            bond2.rotation.z = Math.PI / 4;
+            modelGroup.add(bond2);
+        }
+
+        function createAnimalCell() {
+            // Membrana celular
+            const membraneGeometry = new THREE.SphereGeometry(3.5, 32, 32);
+            const membraneMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x3b82f6,
+                transparent: true,
+                opacity: 0.25,
+                shininess: 100,
+                side: THREE.DoubleSide
+            });
+            const membrane = new THREE.Mesh(membraneGeometry, membraneMaterial);
+            membrane.userData = { name: 'Membrana Celular', info: 'Capa externa que protege y controla el paso de sustancias.' };
+            modelGroup.add(membrane);
+
+            // Citoplasma
+            const cytoplasmGeometry = new THREE.SphereGeometry(3.3, 32, 32);
+            const cytoplasmMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x60a5fa,
+                transparent: true,
+                opacity: 0.15
+            });
+            const cytoplasm = new THREE.Mesh(cytoplasmGeometry, cytoplasmMaterial);
+            cytoplasm.userData = { name: 'Citoplasma', info: 'Líquido gelatinoso donde flotan los organelos.' };
+            modelGroup.add(cytoplasm);
+
+            // Núcleo
+            const nucleusGeometry = new THREE.SphereGeometry(1.2, 32, 32);
+            const nucleusMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x8b5cf6,
+                shininess: 80
+            });
+            const nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial);
+            nucleus.position.set(0, 0, 0);
+            nucleus.userData = { name: 'Núcleo', info: 'Contiene el ADN y controla todas las actividades celulares.' };
+            modelGroup.add(nucleus);
+
+            // Nucleolo (dentro del núcleo)
+            const nucleolusGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const nucleolusMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x6d28d9,
+                shininess: 60
+            });
+            const nucleolus = new THREE.Mesh(nucleolusGeometry, nucleolusMaterial);
+            nucleolus.position.set(0.3, 0.3, 0.3);
+            nucleus.add(nucleolus);
+
+            // Mitocondrias (más detalladas)
+            const createMitochondria = (x, y, z, rx, ry) => {
+                const mitoGroup = new THREE.Group();
+                
+                // Cuerpo principal
+                const bodyGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+                bodyGeometry.scale(2, 0.8, 0.8);
+                const mitoMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xef4444,
+                    shininess: 70
+                });
+                const body = new THREE.Mesh(bodyGeometry, mitoMaterial);
+                mitoGroup.add(body);
+                
+                // Crestas internas
+                for (let i = 0; i < 3; i++) {
+                    const crestaGeometry = new THREE.TorusGeometry(0.15, 0.03, 8, 12);
+                    const crestaMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0xdc2626,
+                        shininess: 50
+                    });
+                    const cresta = new THREE.Mesh(crestaGeometry, crestaMaterial);
+                    cresta.rotation.y = Math.PI / 2;
+                    cresta.position.x = -0.3 + (i * 0.3);
+                    cresta.scale.set(0.8, 1, 0.6);
+                    mitoGroup.add(cresta);
+                }
+                
+                mitoGroup.position.set(x, y, z);
+                mitoGroup.rotation.x = rx;
+                mitoGroup.rotation.y = ry;
+                mitoGroup.userData = { name: 'Mitocondria', info: 'Produce energía (ATP) mediante respiración celular.' };
+                return mitoGroup;
+            };
+
+            modelGroup.add(createMitochondria(2, 0.8, 0.5, 0.3, 0.5));
+            modelGroup.add(createMitochondria(-1.8, -1, -0.5, -0.4, 1.2));
+            modelGroup.add(createMitochondria(0.5, -1.8, 1, 0.8, -0.3));
+            modelGroup.add(createMitochondria(-0.8, 1.5, -0.8, -0.2, 0.9));
+
+            // Retículo Endoplasmático (más complejo)
+            const createER = () => {
+                const erGroup = new THREE.Group();
+                
+                for (let i = 0; i < 5; i++) {
+                    const torusGeometry = new THREE.TorusGeometry(0.3 + i * 0.15, 0.08, 12, 16);
+                    const erMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x10b981,
+                        shininess: 70,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const torus = new THREE.Mesh(torusGeometry, erMaterial);
+                    torus.position.x = -1.5;
+                    torus.position.y = 0.8 - i * 0.15;
+                    torus.rotation.x = Math.PI / 2;
+                    erGroup.add(torus);
+                }
+                
+                erGroup.userData = { name: 'Retículo Endoplasmático', info: 'Transporta proteínas y lípidos por toda la célula.' };
+                return erGroup;
+            };
+
+            modelGroup.add(createER());
+
+            // Ribosomas (pequeñas esferas dispersas)
+            const riboGeometry = new THREE.SphereGeometry(0.12, 12, 12);
+            const riboMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xfbbf24,
+                shininess: 80
+            });
+
+            const riboPositions = [
+                [1.5, 1.2, 0.8], [-1.2, 1.5, 0.5], [0.8, -1.5, -0.6],
+                [-1.8, 0.5, 1], [1.2, 0.3, -1.5], [-0.5, -1.2, 1.3],
+                [1.8, -0.8, 0.3], [-1.5, -0.8, -0.8]
+            ];
+
+            riboPositions.forEach(pos => {
+                const ribo = new THREE.Mesh(riboGeometry, riboMaterial);
+                ribo.position.set(pos[0], pos[1], pos[2]);
+                ribo.userData = { name: 'Ribosoma', info: 'Sintetiza proteínas siguiendo instrucciones del ARN.' };
+                modelGroup.add(ribo);
+            });
+
+            // Aparato de Golgi (capas apiladas)
+            const golgiGroup = new THREE.Group();
+            for (let i = 0; i < 5; i++) {
+                const golgiGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.5);
+                const golgiMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xf59e0b,
+                    shininess: 60
+                });
+                const golgiLayer = new THREE.Mesh(golgiGeometry, golgiMaterial);
+                golgiLayer.position.y = i * 0.12 - 0.24;
+                golgiGroup.add(golgiLayer);
+            }
+            golgiGroup.position.set(1.5, -0.5, -1);
+            golgiGroup.rotation.z = 0.3;
+            golgiGroup.userData = { name: 'Aparato de Golgi', info: 'Modifica y empaqueta proteínas para distribución.' };
+            modelGroup.add(golgiGroup);
+
+            // Lisosomas
+            const lysoGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+            const lysoMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xec4899,
+                shininess: 80
+            });
+
+            const lysoPositions = [
+                [2.2, 1, -0.5], [-2, 0.5, 0.8], [1, 1.8, -1]
+            ];
+
+            lysoPositions.forEach(pos => {
+                const lyso = new THREE.Mesh(lysoGeometry, lysoMaterial);
+                lyso.position.set(pos[0], pos[1], pos[2]);
+                lyso.userData = { name: 'Lisosoma', info: 'Contiene enzimas digestivas para descomponer desechos.' };
+                modelGroup.add(lyso);
+            });
+        }
+
+        function changeModel(type) {
+            currentModel = type;
+            createModel(type);
+            
+            document.querySelectorAll('.model-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const buttons = document.querySelectorAll('.model-btn');
+            buttons.forEach(btn => {
+                if ((type === 'water' && btn.textContent.includes('Agua')) ||
+                    (type === 'cell' && btn.textContent.includes('Célula'))) {
+                    btn.classList.add('active');
+                }
+            });
+
+            updateInfoPanel();
+        }
+
+        function resetView() {
+            camera.position.set(0, 0, 8);
+            camera.lookAt(0, 0, 0);
+            if (modelGroup) {
+                modelGroup.rotation.set(0, 0, 0);
+            }
+        }
+
+        function zoomIn() {
+            camera.position.z = Math.max(camera.position.z - 1, 3);
+        }
+
+        function zoomOut() {
+            camera.position.z = Math.min(camera.position.z + 1, 15);
+        }
+
+        function toggleInfo() {
+            const panel = document.getElementById('info-panel');
+            if (panel.classList.contains('visible')) {
+                panel.classList.remove('visible');
+            } else {
+                updateInfoPanel();
+                panel.classList.add('visible');
+            }
+        }
+
+        function toggleRotation() {
+            isRotating = !isRotating;
+            document.getElementById('rotation-text').textContent = isRotating ? 'Pausar' : 'Rotar';
+        }
+
+        function updateInfoPanel() {
+            const info = modelInfo[currentModel];
+            const content = document.getElementById('info-content');
+            
+            let html = `<h3>${info.title}</h3>`;
+            html += `<p style="margin-bottom: 15px; line-height: 1.6;">${info.description}</p>`;
+            html += '<h4 style="color: #10b981; margin-bottom: 10px; font-size: 1.1em;">📋 Partes y Funciones:</h4>';
+            
